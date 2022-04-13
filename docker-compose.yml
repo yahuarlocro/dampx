@@ -1,0 +1,64 @@
+version: '3'
+services: 
+    webserver:
+        build:
+            # it is important to place Dockerfile within its own directory
+            # otherwise image has be be built first i.e docker-compose up -d --build 
+            context: ./apache-php
+        image: apache_php_xdebug:v0.1
+        restart: always
+        ports: 
+            - ${WEBSERVER_PORT}:80
+            #- 443:443
+        volumes:
+            #path to your webroot, this is your website directory 
+            #by default in containers using this php-apache image, the webroot 
+            #directory is /var/www.
+            #DO NOT forget to update your webroot path in the Dockerfile
+            - ./mywebsite:/var/www/mywebsite
+        environment: 
+            DB_NAME: ${DB_NAME}
+            DB_USER: ${DB_USER}
+            DB_PASSWORD: ${DB_PASSWORD}
+        networks: 
+            - backend
+            
+    database:
+        image: mysql:8
+        command: --default-authentication-plugin=mysql_native_password
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+            #if a database is available and needs to be uploaded into the container,            
+            #specify the next 3 lines: database name, user, and user password
+            MYSQL_DATABASE: ${DB_NAME}
+            MYSQL_USER: ${DB_USER}
+            MYSQL_PASSWORD: ${DB_PASSWORD}
+        volumes:
+            - persistent_db:/var/lib/mysql
+            # if a database is available, comment out the following 2 lines and update the paths
+            # - ./database/dump:/docker-entrypoint-initdb.d
+            # - ./database/conf:/etc/mysql/conf.d
+        ports:
+            - ${DATABASE_PORT}:3306
+        networks: 
+            - backend
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin:5.0
+        environment:
+            PMA_HOST: database
+            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD} 
+        restart: always
+        ports: 
+            - ${PHP_MYADMIN_PORT}:80
+        depends_on: 
+            - database
+            - webserver
+        networks: 
+            - backend
+
+networks: 
+    backend:
+volumes: 
+    persistent_db:
